@@ -140,3 +140,5 @@ p, li, blockquote { text-wrap: pretty; }
 /* review autoplay timer */
 .tr-timer { animation: tr-fill 6.5s linear forwards; }
 @keyframes tr-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+@keyframes cur-spin { to { transform: rotate(360deg); } } /* the cursor's ring of text */

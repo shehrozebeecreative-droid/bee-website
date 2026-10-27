@@ -189,13 +189,14 @@ function Header() {
  * The site's cursor (pointer devices only). Over the swarm it is a "press & hold" disc whose ring fills as the
  * swarm charges, then it bursts; over links and buttons it opens into a ring; elsewhere it is a small honey dot.
  */
+const HOLD = "PRESS & HOLD · PRESS & HOLD · ", RELEASE = "RELEASE · RELEASE · RELEASE · ";
 function Cursor() {
   const el = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!matchMedia("(pointer: fine)").matches) return;
     const root = document.documentElement, c = el.current!;
     const disc = c.querySelector<HTMLElement>(".cur-disc")!, dot = c.querySelector<HTMLElement>(".cur-dot")!;
-    const ring = c.querySelector("circle")!, label = c.querySelector("span")!;
+    const ring = c.querySelector(".cur-ring")!, label = c.querySelector("textPath")!;
     root.classList.add("custom-cursor");
     const x = gsap.quickTo(c, "x", { duration: 0.3, ease: "power3" }), y = gsap.quickTo(c, "y", { duration: 0.3, ease: "power3" });
     let mode = "", px = -1, py = -1, charge: gsap.core.Tween | null = null;
@@ -220,14 +221,14 @@ function Cursor() {
       if (mode !== "hold") return;
       gsap.to(disc, { scale: 0.88, duration: 0.38, ease: "power2.out", overwrite: "auto" });
       charge = gsap.fromTo(ring, { strokeDashoffset: 1 }, { strokeDashoffset: 0, duration: 0.38, ease: "none", onComplete: () => {
-        label.textContent = "Release";
+        label.textContent = RELEASE;
         gsap.to(disc, { scale: 1.22, duration: 0.5, ease: "back.out(3)", overwrite: "auto" });
       } });
     };
     const up = () => {
       charge?.kill();
       gsap.to(ring, { strokeDashoffset: 1, duration: 0.3 });
-      label.textContent = "Press & hold";
+      label.textContent = HOLD;
       if (mode === "hold") gsap.to(disc, { scale: 1, duration: 0.4, ease: "power3.out", overwrite: "auto" });
     };
     addEventListener("pointermove", move);
@@ -247,12 +248,18 @@ function Cursor() {
   return (
     <div ref={el} aria-hidden style={{ visibility: "hidden", opacity: 0 }} className="pointer-events-none fixed top-0 left-0 z-[100] hidden md:block">
       <div className="cur-dot absolute top-0 left-0 h-[10px] w-[10px] -translate-x-1/2 -translate-y-1/2 rounded-full border-[1.5px] border-[var(--honey)] bg-[var(--honey)] shadow-[0_0_0_1px_rgba(10,10,8,0.45)]" />
-      <div className="cur-disc absolute top-0 left-0 -mt-12 -ml-12 h-24 w-24" style={{ visibility: "hidden", opacity: 0 }}>
-        <div className="grid h-full w-full place-items-center rounded-full border border-[var(--honey)]/35 bg-[#0a0a08]/55 backdrop-blur-md">
-          <span className="w-16 text-center text-[11px] font-medium leading-tight text-[var(--honey)]">Press &amp; hold</span>
-        </div>
-        <svg viewBox="0 0 100 100" className="absolute inset-0 -rotate-90">
-          <circle cx="50" cy="50" r="48.5" fill="none" stroke="#fee12c" strokeWidth="2" strokeLinecap="round" pathLength={1} strokeDasharray="1" strokeDashoffset={1} />
+      <div className="cur-disc absolute top-0 left-0 -mt-10 -ml-10 h-20 w-20" style={{ visibility: "hidden", opacity: 0 }}>
+        <div className="h-full w-full rounded-full border border-[var(--honey)]/25 bg-[#0a0a08]/60 backdrop-blur-md" />
+        <svg viewBox="0 0 100 100" className="absolute inset-0">
+          <defs><path id="cur-text-path" d="M50 50 m-35 0 a35 35 0 1 1 70 0 a35 35 0 1 1 -70 0" /></defs>
+          {/* the words run round the disc and turn slowly */}
+          <g style={{ transformOrigin: "50px 50px", animation: "cur-spin 14s linear infinite" }}>
+            <text fill="#fee12c" fontSize="10.5" fontWeight="500" style={{ fontFamily: "var(--font-dm), sans-serif" }}>
+              <textPath href="#cur-text-path" textLength="216" lengthAdjust="spacing">{HOLD}</textPath>
+            </text>
+          </g>
+          <circle cx="50" cy="50" r="3.5" fill="#fee12c" />
+          <circle className="cur-ring" cx="50" cy="50" r="48.5" fill="none" stroke="#fee12c" strokeWidth="2" strokeLinecap="round" pathLength={1} strokeDasharray="1" strokeDashoffset={1} transform="rotate(-90 50 50)" />
         </svg>
       </div>
     </div>
