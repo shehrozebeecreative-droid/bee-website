@@ -20,7 +20,8 @@ export function dotShape(canvas: HTMLCanvasElement, draw: (g: CanvasRenderingCon
 
   const build = () => {
     dpr = Math.min(devicePixelRatio, 2);
-    const w = (canvas.width = canvas.clientWidth * dpr), h = (canvas.height = canvas.clientHeight * dpr);
+    // whole pixels: a fractional width (e.g. 125% display scaling) would shear every row of the pixel lookup
+    const w = (canvas.width = Math.round(canvas.clientWidth * dpr)), h = (canvas.height = Math.round(canvas.clientHeight * dpr));
     if (!w || !h) return;
     const off = document.createElement("canvas");
     off.width = w;

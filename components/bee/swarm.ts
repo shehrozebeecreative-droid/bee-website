@@ -34,7 +34,7 @@ export function createSwarm(canvas: HTMLCanvasElement, forms: Float32Array[], co
   geo.setAttribute("aSize", new THREE.BufferAttribute(size, 1));
 
   const uniforms = {
-    uMix: { value: 0 }, uTime: { value: 0 }, uMouse: { value: new THREE.Vector3(99, 99, 0) },
+    uMix: { value: 0 }, uTime: { value: 0 },
     uBurst: { value: 0 }, uPixel: { value: renderer.getPixelRatio() }, uOpacity: { value: 1 },
     uColor: { value: new THREE.Color(0xfee12c) },
     uSpin: { value: 0 }, uTilt: { value: 0 }, uClean: { value: 0 }, uSpinCenter: { value: globe?.center.clone() ?? new THREE.Vector3() },
@@ -43,7 +43,7 @@ export function createSwarm(canvas: HTMLCanvasElement, forms: Float32Array[], co
     uniforms, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
     vertexShader: /* glsl */ `
       attribute vec3 aFrom; attribute vec3 aTo; attribute vec4 aRand; attribute float aSize;
-      uniform float uMix, uTime, uBurst, uPixel, uSpin, uTilt, uClean; uniform vec3 uMouse, uSpinCenter;
+      uniform float uMix, uTime, uBurst, uPixel, uSpin, uTilt, uClean; uniform vec3 uSpinCenter;
       varying float vGlow; varying float vSeed; varying float vBack; varying float vClean;
       void main(){
         vClean = uClean;
@@ -59,15 +59,11 @@ export function createSwarm(canvas: HTMLCanvasElement, forms: Float32Array[], co
         vBack = uSpin != 0. ? smoothstep(.2, -.6, r.z) : 0.;
         p += aRand.xyz * sin(m * 3.14159) * 1.6;                       // swoop between formations
         p += .03 * (1. - uClean) * vec3(sin(uTime * 7. + d * 60.), cos(uTime * 6. + d * 47.), sin(uTime * 5. + d * 31.)); // buzz (calm on the globe)
-        vec2 dm = p.xy - uMouse.xy;
-        float f = smoothstep(0.6, 0., length(dm));                    // small hover radius
-        p.xy += normalize(dm + 1e-4) * f * 0.35;                       // flee the pointer, gently
-        p.z += f * 0.3;
         p += aRand.xyz * uBurst * (3. + d * 7.);                        // press & hold burst
         vec4 mv = modelViewMatrix * vec4(p, 1.);
         gl_Position = projectionMatrix * mv;
         gl_PointSize = mix(aSize, .8, uClean) * uPixel * (40. / -mv.z); // uniform dots on the globe
-        vGlow = f + uBurst * .5; vSeed = d;
+        vGlow = uBurst * .5; vSeed = d;
       }`,
     fragmentShader: /* glsl */ `
       uniform vec3 uColor; uniform float uOpacity;
@@ -191,16 +187,6 @@ export function createSwarm(canvas: HTMLCanvasElement, forms: Float32Array[], co
     overlay.visible = false;
   }
 
-  // Pointer → world point on z=0 plane.
-  let hasPointer = false;
-  const ndc = new THREE.Vector2(0, 0), ray = new THREE.Raycaster(), plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
-  const aim = new THREE.Vector3(99, 99, 0);
-  const move = (e: PointerEvent) => {
-    hasPointer = true;
-    ndc.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
-  };
-  addEventListener("pointermove", move);
-
   let cur = -1, globeAmt = 0, lastF = 0, globeScroll = 0.5;
   const setMorph = (f: number) => {
     const max = forms.length - 1;
@@ -276,8 +262,6 @@ export function createSwarm(canvas: HTMLCanvasElement, forms: Float32Array[], co
     const t = (performance.now() - t0) / 1000, dt = Math.min(0.05, t - last);
     last = t;
     uniforms.uTime.value = t;
-    ray.setFromCamera(ndc, camera);
-    if (hasPointer && ray.ray.intersectPlane(plane, aim)) uniforms.uMouse.value.lerp(aim, 0.18);
     // In the hero the bee follows the pointer: it drifts towards it and tilts in 3D around its own centre.
     const heroAmt = heroPivot ? THREE.MathUtils.clamp(1 - lastF, 0, 1) : 0;
     // (the hero bee no longer follows the mouse — only a gentle hover)
@@ -397,7 +381,6 @@ export function createSwarm(canvas: HTMLCanvasElement, forms: Float32Array[], co
     burst: (on: boolean) => gsap.to(uniforms.uBurst, { value: on ? 1 : 0, duration: on ? 0.9 : 1.6, ease: on ? "expo.out" : "elastic.out(1,0.5)" }),
     dispose() {
       cancelAnimationFrame(raf);
-      removeEventListener("pointermove", move);
       removeEventListener("resize", resize);
       renderer.dispose();
     },

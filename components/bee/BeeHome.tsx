@@ -35,10 +35,6 @@ function Arrow() {
   return <span className="arr"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M2 10 10 2M4 2h6v6" /></svg></span>;
 }
 
-function Code({ n, label, className = "" }: { n: string; label: string; className?: string }) {
-  return <p className={`jet text-[11px] uppercase tracking-[0.18em] text-[var(--honey)] ${className}`} data-scramble>[ {n} — {label} ]</p>;
-}
-
 function Panel({ className = "", children }: { className?: string; children: ReactNode }) {
   return <div className={`hud-panel relative rounded-[18px] border border-white/10 bg-white/[0.035] backdrop-blur-xl ${className}`}>{children}</div>;
 }
@@ -136,7 +132,7 @@ function Hud() {
       <p className="jet absolute top-1/2 left-1 origin-left -translate-y-1/2 -rotate-90 whitespace-nowrap text-[10px] uppercase tracking-[0.3em] text-white/35">
         Bee Creative · Karachi, PK · {time}
       </p>
-      <p className="jet absolute bottom-2 left-8 text-[10px] uppercase tracking-[0.25em] text-white/45"><span className="hud-section text-[var(--honey)]">00 Signal</span></p>
+      <p className="jet absolute bottom-2 left-8 text-[10px] uppercase tracking-[0.25em] text-white/45"><span className="hud-section text-[var(--honey)]">Home</span></p>
       <p className="jet absolute right-8 bottom-2 text-[10px] uppercase tracking-[0.25em] text-white/45">Scroll <span className="hud-pct text-[var(--honey)]">000</span>%</p>
     </div>
   );
@@ -163,9 +159,9 @@ function Header() {
           <img src="/bee/logo.svg" alt="Bee Creative" className="h-9 w-auto md:h-10" />
         </a>
         <nav className={`${glass} absolute top-1/2 left-1/2 hidden -translate-x-1/2 -translate-y-1/2 items-center gap-1 p-1.5 lg:flex`}>
-          {links.map(([l, h], i) => (
-            <a key={l} data-beep href={h} className="flex items-center gap-1.5 whitespace-nowrap rounded-full px-4 py-2 text-[13px] text-[var(--wax)]/75 transition hover:bg-white/10 hover:text-[var(--wax)]">
-              <span className="jet text-[10px] text-[var(--honey)]/70">0{i + 1}</span>{l}
+          {links.map(([l, h]) => (
+            <a key={l} data-beep href={h} className="whitespace-nowrap rounded-full px-4 py-2 text-[13px] text-[var(--wax)]/75 transition hover:bg-white/10 hover:text-[var(--wax)]">
+              {l}
             </a>
           ))}
         </nav>
@@ -175,10 +171,10 @@ function Header() {
         </div>
       </header>
       <div ref={menu} data-lenis-prevent className="fixed inset-0 z-40 hidden flex-col justify-end bg-[#0a0a08] p-6 pb-14">
-        {links.map(([l, h], i) => (
+        {links.map(([l, h]) => (
           <div key={l} className="overflow-hidden">
-            <a href={h} onClick={() => setOpen(false)} className="mi syne flex items-baseline gap-4 text-[11vw] font-extrabold uppercase leading-[1.05] text-[var(--wax)]">
-              <span className="jet text-sm text-[var(--honey)]">0{i + 1}</span>{l}
+            <a href={h} onClick={() => setOpen(false)} className="mi syne block text-[11vw] font-extrabold uppercase leading-[1.05] text-[var(--wax)]">
+              {l}
             </a>
           </div>
         ))}
@@ -188,7 +184,62 @@ function Header() {
   );
 }
 
-/* ───────────────────────── 00 Signal (hero) ───────────────────────── */
+/* ───────────────────────── Hero ───────────────────────── */
+/** Over the hero the cursor becomes a "press & hold" disc; holding fills its ring as the swarm charges, then it bursts. */
+function HoldCursor() {
+  const el = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!matchMedia("(pointer: fine)").matches) return;
+    const c = el.current!, hero = document.getElementById("top")!, ring = c.querySelector("circle")!, label = c.querySelector("span")!;
+    const x = gsap.quickTo(c, "x", { duration: 0.35, ease: "power3" }), y = gsap.quickTo(c, "y", { duration: 0.35, ease: "power3" });
+    let on = false, px = -1, py = -1, charge: gsap.core.Tween | null = null;
+    const show = (v: boolean) => {
+      if (v === on) return;
+      on = v;
+      hero.style.cursor = v ? "none" : "";
+      gsap.to(c, { autoAlpha: v ? 1 : 0, scale: v ? 1 : 0.6, duration: 0.3, ease: "power3.out", overwrite: "auto" });
+    };
+    // over the hero, but not over a link or a button
+    const check = () => { const t = document.elementFromPoint(px, py); show(!!t && hero.contains(t) && !t.closest("a,button,input,textarea,label")); };
+    const move = (e: PointerEvent) => { px = e.clientX; py = e.clientY; x(px); y(py); check(); };
+    const down = () => {
+      if (!on) return;
+      gsap.to(c, { scale: 0.88, duration: 0.38, ease: "power2.out", overwrite: "auto" });
+      charge = gsap.fromTo(ring, { strokeDashoffset: 1 }, { strokeDashoffset: 0, duration: 0.38, ease: "none", onComplete: () => {
+        label.textContent = "Release";
+        gsap.to(c, { scale: 1.22, duration: 0.5, ease: "back.out(3)", overwrite: "auto" });
+      } });
+    };
+    const up = () => {
+      charge?.kill();
+      gsap.to(ring, { strokeDashoffset: 1, duration: 0.3 });
+      label.textContent = "Press & hold";
+      if (on) gsap.to(c, { scale: 1, duration: 0.4, ease: "power3.out", overwrite: "auto" });
+    };
+    addEventListener("pointermove", move);
+    addEventListener("pointerdown", down);
+    addEventListener("pointerup", up);
+    addEventListener("scroll", check, { passive: true });
+    return () => {
+      removeEventListener("pointermove", move);
+      removeEventListener("pointerdown", down);
+      removeEventListener("pointerup", up);
+      removeEventListener("scroll", check);
+      hero.style.cursor = "";
+    };
+  }, []);
+  return (
+    <div ref={el} aria-hidden style={{ visibility: "hidden", opacity: 0 }} className="pointer-events-none fixed top-0 left-0 z-[60] -mt-12 -ml-12 hidden h-24 w-24 md:block">
+      <div className="grid h-full w-full place-items-center rounded-full border border-[var(--honey)]/35 bg-[#0a0a08]/55 backdrop-blur-md">
+        <span className="jet w-16 text-center text-[9px] uppercase leading-snug tracking-[0.2em] text-[var(--honey)]">Press &amp; hold</span>
+      </div>
+      <svg viewBox="0 0 100 100" className="absolute inset-0 -rotate-90">
+        <circle cx="50" cy="50" r="48.5" fill="none" stroke="#fee12c" strokeWidth="2" strokeLinecap="round" pathLength={1} strokeDasharray="1" strokeDashoffset={1} />
+      </svg>
+    </div>
+  );
+}
+
 function Hero() {
   const root = useRef<HTMLElement>(null);
   useGSAP(() => {
@@ -204,9 +255,8 @@ function Hero() {
   }, { scope: root });
   const stats: [number, string, string][] = [[350, "+", "Stores launched"], [100, "%", "Job success"], [40, "+", "5-star reviews"]];
   return (
-    <section ref={root} id="top" data-label="00 Signal" className="relative flex min-h-dvh flex-col justify-end px-5 pt-32 pb-10 md:px-10">
+    <section ref={root} id="top" data-label="Home" className="relative flex min-h-dvh flex-col justify-end px-5 pt-32 pb-10 md:px-10">
       <div className="hero-copy relative md:max-w-[54vw]">
-        <Code n="00" label="Signal" className="hero-in mb-6" />
         <h1 className="hero-h1 syne text-[clamp(40px,5.4vw,100px)] font-extrabold uppercase leading-[0.94]">
           Redefining<br /><span className="text-[var(--honey)]">digital</span><br />commerce
         </h1>
@@ -231,9 +281,7 @@ function Hero() {
           <PartnerBadge className="h-11 w-auto" />
         </div>
       </div>
-      <p className="hero-in jet pointer-events-none absolute right-10 bottom-[150px] hidden text-right text-[10px] uppercase leading-relaxed tracking-[0.2em] text-white/45 md:block">
-        <span className="text-[var(--honey)]">Press &amp; hold to release it</span>
-      </p>
+      <HoldCursor />
     </section>
   );
 }
@@ -250,8 +298,7 @@ function Mission() {
   }, { scope: root });
   const mark = "ms-mark bg-[linear-gradient(var(--honey),var(--honey))] bg-no-repeat px-[0.12em] text-[#0a0a08]";
   return (
-    <section ref={root} id="mission" data-form={F.nebula} data-label="01 Mission" className="relative px-5 py-[22vh] md:px-10">
-      <Code n="01" label="Mission" className="mb-10" />
+    <section ref={root} id="mission" data-form={F.nebula} data-label="Mission" className="relative px-5 py-[22vh] md:px-10">
       <p className="ms-p syne max-w-[20ch] text-[clamp(32px,5vw,86px)] font-bold leading-[1.04]">
         We build <span className={mark}>high-performance</span> Shopify stores and brands that don&apos;t just look better — they <span className={mark}>perform</span> better.
       </p>
@@ -448,8 +495,7 @@ function Capabilities({ onMorph }: { onMorph: (f: number) => void }) {
   }, { scope: root, dependencies: [active] });
 
   return (
-    <section ref={root} id="capabilities" data-label="02 Capabilities" className="relative h-dvh overflow-hidden">
-      <Code n="02" label="Capabilities" className="absolute top-28 w-full text-center" />
+    <section ref={root} id="capabilities" data-label="Capabilities" className="relative h-dvh overflow-hidden">
       <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-5">
         {SERVICES.map((s) => (
           <div key={s.short} className="cap-word syne w-full max-w-[1100px] text-balance text-center text-[clamp(44px,8.6vw,150px)] font-extrabold uppercase leading-[0.9]">{s.short}</div>
@@ -578,9 +624,8 @@ function Proof({ onMorph }: { onMorph: (f: number) => void }) {
     <p className="syne whitespace-nowrap font-extrabold leading-none" style={{ fontSize: `${size}cqw` }}><span className="pf-num">0</span><span className="text-[var(--honey)]">{s}</span></p>
   );
   return (
-    <section ref={root} id="proof" data-form={F.g0} data-label="03 Proof" className="relative flex h-dvh items-center gap-10 overflow-hidden px-5 md:px-10 max-md:flex-col max-md:justify-center">
+    <section ref={root} id="proof" data-form={F.g0} data-label="Proof" className="relative flex h-dvh items-center gap-10 overflow-hidden px-5 md:px-10 max-md:flex-col max-md:justify-center">
       <div className="pf-copy relative z-20 w-full max-w-[min(560px,40vw)] max-md:max-w-none">
-        <Code n="03" label="Proof" className="mb-6" />
         <h2 className="pf-h syne text-[clamp(24px,2.4vw,42px)] font-extrabold uppercase leading-[1.02] [&>span]:block [&>span]:whitespace-nowrap">
           <span>We make your</span><span>business</span><span className="text-[var(--honey)]">stand out</span>
         </h2>
@@ -677,7 +722,7 @@ function Work() {
   }, { scope: root });
 
   return (
-    <section ref={root} id="work" data-form={F.wave} data-label="04 Work" className="relative">
+    <section ref={root} id="work" data-form={F.wave} data-label="Work" className="relative">
       <div className="overflow-hidden border-y border-white/10 bg-[#0a0a08]/60 py-6 backdrop-blur">
         <div className="logo-row flex w-max items-center gap-16 pr-16">
           {[...LOGOS, ...LOGOS, ...LOGOS, ...LOGOS].map((f, i) => <img loading="lazy" decoding="async" key={i} src={`/bee/${f}`} alt="" className="h-8 w-auto max-w-[130px] object-contain opacity-50 brightness-0 invert" />)}
@@ -686,7 +731,6 @@ function Work() {
       <div className="wk-pin relative overflow-hidden">
         <div ref={track} className="flex min-h-dvh flex-col gap-12 px-5 py-24 [perspective:1600px] min-[900px]:w-max min-[900px]:flex-row min-[900px]:items-center min-[900px]:gap-[3vw] min-[900px]:px-10 min-[900px]:py-0">
           <div className="shrink-0 min-[900px]:w-[34vw]">
-            <Code n="04" label="Missions" className="mb-6" />
             <h2 className="wk-h syne text-[clamp(40px,4.8vw,88px)] font-extrabold uppercase leading-[0.94] [&>span]:block [&>span]:whitespace-nowrap">
               <span>Impact</span><span>we created</span>
             </h2>
@@ -777,9 +821,8 @@ function Trust({ onGlobe }: { onGlobe: (p: number) => void }) {
     gsap.from(h.words, { yPercent: 60, opacity: 0, stagger: 0.05, duration: 0.9, ease: "expo.out", scrollTrigger: { trigger: ".tr-h", start: "top 82%" } });
   }, { scope: root });
   return (
-    <section ref={root} id="trust" data-form={F.earth} data-label="05 Trust" className="relative flex min-h-dvh items-center px-5 py-28 md:px-10">
+    <section ref={root} id="trust" data-form={F.earth} data-label="Trust" className="relative flex min-h-dvh items-center px-5 py-28 md:px-10">
       <div className="w-full max-w-[min(600px,46vw)] max-md:max-w-none">
-        <Code n="05" label="Trust" className="mb-8" />
         <h2 className="tr-h syne text-[clamp(28px,3.2vw,54px)] font-extrabold uppercase leading-[1] [&>span]:block [&>span]:whitespace-nowrap">
           <span>Worldwide trust</span><span>built on</span><span className="text-[var(--honey)]">excellence</span>
         </h2>
@@ -867,13 +910,12 @@ function Waggle({ onSwarm, onMorph }: { onSwarm: (o: number) => void; onMorph: (
     return () => scene.dispose();
   }, { scope: root });
   return (
-    <section ref={root} data-label="06 The hive" className="relative h-dvh overflow-hidden">
+    <section ref={root} data-label="The hive" className="relative h-dvh overflow-hidden">
       <div className="wg-copy pointer-events-none absolute inset-0 grid place-items-center">
         <h2 className="wg-title syne text-center text-[clamp(56px,10vw,180px)] font-extrabold uppercase leading-[0.86] text-transparent [-webkit-text-stroke:1.5px_rgba(254,225,44,.55)]">Made in<br />the hive</h2>
       </div>
       <canvas ref={canvas} className="pointer-events-none absolute inset-0 z-[1] h-full w-full" />
       <div className="wg-copy pointer-events-none absolute inset-x-5 top-28 z-[2] flex justify-between gap-6 md:inset-x-10">
-        <Code n="06" label="Made in the hive" />
         <p className="max-w-[17rem] text-right text-[14px] leading-snug text-white/55">A ribbon of recent launches, rebrands and campaigns from our studio.</p>
       </div>
       <div className="absolute inset-x-5 bottom-10 z-[2] flex items-end justify-between gap-6 md:inset-x-10">
@@ -917,9 +959,8 @@ function Launch() {
     { k: "Instagram", v: "@beecrea8ive", sub: "Latest launches and behind the scenes", href: "https://www.instagram.com/beecrea8ive/" },
   ];
   return (
-    <section ref={root} id="launch" data-form={F.plane} data-label="07 Launch" className="relative px-5 py-[16vh] md:px-10">
+    <section ref={root} id="launch" data-form={F.plane} data-label="Launch" className="relative px-5 py-[16vh] md:px-10">
       <div className="max-w-[min(900px,60vw)] max-md:max-w-none">
-        <Code n="07" label="Launch" className="mb-8" />
         <h2 className="ln-h syne text-[clamp(40px,6vw,108px)] font-extrabold uppercase leading-[0.92]">Have an idea?</h2>
         <h2 className="ln-h syne text-[clamp(40px,6vw,108px)] font-extrabold uppercase leading-[0.92] text-[var(--honey)]">Let&apos;s launch it.</h2>
         <p className="mt-6 max-w-lg text-lg text-[var(--wax)]/65">Tell us what you&apos;re building — a new store, a migration, a rebrand or a campaign. We&apos;ll reply with next steps.</p>
@@ -985,7 +1026,7 @@ function Footer({ onSwarm }: { onSwarm: (o: number) => void }) {
     ScrollTrigger.create({ trigger: ".bee-footer", start: "top 70%", onToggle: (s) => onSwarm(s.isActive ? 0 : 1) });
   });
   return (
-    <footer data-label="08 Home" className="bee-footer relative border-t border-white/10 bg-[#0a0a08] px-5 pt-20 pb-8 md:px-10">
+    <footer data-label="Contact" className="bee-footer relative border-t border-white/10 bg-[#0a0a08] px-5 pt-20 pb-8 md:px-10">
       <canvas ref={canvas} className="block h-[22vw] max-h-[300px] min-h-[110px] w-full cursor-crosshair" />
       <div className="mt-16 grid gap-12 md:grid-cols-[1.4fr_1fr_1fr_1.1fr]">
         <div>
