@@ -185,57 +185,76 @@ function Header() {
 }
 
 /* ───────────────────────── Hero ───────────────────────── */
-/** Over the hero the cursor becomes a "press & hold" disc; holding fills its ring as the swarm charges, then it bursts. */
-function HoldCursor() {
+/**
+ * The site's cursor (pointer devices only). Over the swarm it is a "press & hold" disc whose ring fills as the
+ * swarm charges, then it bursts; over links and buttons it opens into a ring; elsewhere it is a small honey dot.
+ */
+function Cursor() {
   const el = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!matchMedia("(pointer: fine)").matches) return;
-    const c = el.current!, hero = document.getElementById("top")!, ring = c.querySelector("circle")!, label = c.querySelector("span")!;
-    const x = gsap.quickTo(c, "x", { duration: 0.35, ease: "power3" }), y = gsap.quickTo(c, "y", { duration: 0.35, ease: "power3" });
-    let on = false, px = -1, py = -1, charge: gsap.core.Tween | null = null;
-    const show = (v: boolean) => {
-      if (v === on) return;
-      on = v;
-      hero.style.cursor = v ? "none" : "";
-      gsap.to(c, { autoAlpha: v ? 1 : 0, scale: v ? 1 : 0.6, duration: 0.3, ease: "power3.out", overwrite: "auto" });
+    const root = document.documentElement, c = el.current!;
+    const disc = c.querySelector<HTMLElement>(".cur-disc")!, dot = c.querySelector<HTMLElement>(".cur-dot")!;
+    const ring = c.querySelector("circle")!, label = c.querySelector("span")!;
+    root.classList.add("custom-cursor");
+    const x = gsap.quickTo(c, "x", { duration: 0.3, ease: "power3" }), y = gsap.quickTo(c, "y", { duration: 0.3, ease: "power3" });
+    let mode = "", px = -1, py = -1, charge: gsap.core.Tween | null = null;
+    const setMode = (m: "hold" | "link" | "dot" | "off") => {
+      if (m === mode) return;
+      mode = m;
+      gsap.to(c, { autoAlpha: m === "off" ? 0 : 1, duration: 0.25, overwrite: "auto" });
+      gsap.to(disc, { autoAlpha: m === "hold" ? 1 : 0, scale: m === "hold" ? 1 : 0.4, duration: 0.35, ease: "power3.out", overwrite: "auto" });
+      gsap.to(dot, { autoAlpha: m === "hold" ? 0 : 1, width: m === "link" ? 44 : 10, height: m === "link" ? 44 : 10,
+        backgroundColor: m === "link" ? "rgba(254,225,44,0)" : "rgba(254,225,44,1)", duration: 0.3, ease: "power3.out", overwrite: "auto" });
     };
-    // over the hero, but not over a link or a button
-    const check = () => { const t = document.elementFromPoint(px, py); show(!!t && hero.contains(t) && !t.closest("a,button,input,textarea,label")); };
+    const check = () => {
+      const t = document.elementFromPoint(px, py);
+      if (!t) return setMode("off");
+      if (t.closest("a,button,label,select,[role=button]")) return setMode("link");
+      if (t.closest("input,textarea")) return setMode("off"); // the I-beam takes over in text fields
+      setMode(root.hasAttribute("data-swarm-hidden") ? "dot" : "hold");
+    };
     const move = (e: PointerEvent) => { px = e.clientX; py = e.clientY; x(px); y(py); check(); };
+    const leave = () => setMode("off");
     const down = () => {
-      if (!on) return;
-      gsap.to(c, { scale: 0.88, duration: 0.38, ease: "power2.out", overwrite: "auto" });
+      if (mode !== "hold") return;
+      gsap.to(disc, { scale: 0.88, duration: 0.38, ease: "power2.out", overwrite: "auto" });
       charge = gsap.fromTo(ring, { strokeDashoffset: 1 }, { strokeDashoffset: 0, duration: 0.38, ease: "none", onComplete: () => {
         label.textContent = "Release";
-        gsap.to(c, { scale: 1.22, duration: 0.5, ease: "back.out(3)", overwrite: "auto" });
+        gsap.to(disc, { scale: 1.22, duration: 0.5, ease: "back.out(3)", overwrite: "auto" });
       } });
     };
     const up = () => {
       charge?.kill();
       gsap.to(ring, { strokeDashoffset: 1, duration: 0.3 });
       label.textContent = "Press & hold";
-      if (on) gsap.to(c, { scale: 1, duration: 0.4, ease: "power3.out", overwrite: "auto" });
+      if (mode === "hold") gsap.to(disc, { scale: 1, duration: 0.4, ease: "power3.out", overwrite: "auto" });
     };
     addEventListener("pointermove", move);
     addEventListener("pointerdown", down);
     addEventListener("pointerup", up);
     addEventListener("scroll", check, { passive: true });
+    document.addEventListener("mouseleave", leave);
     return () => {
       removeEventListener("pointermove", move);
       removeEventListener("pointerdown", down);
       removeEventListener("pointerup", up);
       removeEventListener("scroll", check);
-      hero.style.cursor = "";
+      document.removeEventListener("mouseleave", leave);
+      root.classList.remove("custom-cursor");
     };
   }, []);
   return (
-    <div ref={el} aria-hidden style={{ visibility: "hidden", opacity: 0 }} className="pointer-events-none fixed top-0 left-0 z-[60] -mt-12 -ml-12 hidden h-24 w-24 md:block">
-      <div className="grid h-full w-full place-items-center rounded-full border border-[var(--honey)]/35 bg-[#0a0a08]/55 backdrop-blur-md">
-        <span className="jet w-16 text-center text-[9px] uppercase leading-snug tracking-[0.2em] text-[var(--honey)]">Press &amp; hold</span>
+    <div ref={el} aria-hidden style={{ visibility: "hidden", opacity: 0 }} className="pointer-events-none fixed top-0 left-0 z-[100] hidden md:block">
+      <div className="cur-dot absolute top-0 left-0 h-[10px] w-[10px] -translate-x-1/2 -translate-y-1/2 rounded-full border-[1.5px] border-[var(--honey)] bg-[var(--honey)] shadow-[0_0_0_1px_rgba(10,10,8,0.45)]" />
+      <div className="cur-disc absolute top-0 left-0 -mt-12 -ml-12 h-24 w-24" style={{ visibility: "hidden", opacity: 0 }}>
+        <div className="grid h-full w-full place-items-center rounded-full border border-[var(--honey)]/35 bg-[#0a0a08]/55 backdrop-blur-md">
+          <span className="w-16 text-center text-[11px] font-medium leading-tight text-[var(--honey)]">Press &amp; hold</span>
+        </div>
+        <svg viewBox="0 0 100 100" className="absolute inset-0 -rotate-90">
+          <circle cx="50" cy="50" r="48.5" fill="none" stroke="#fee12c" strokeWidth="2" strokeLinecap="round" pathLength={1} strokeDasharray="1" strokeDashoffset={1} />
+        </svg>
       </div>
-      <svg viewBox="0 0 100 100" className="absolute inset-0 -rotate-90">
-        <circle cx="50" cy="50" r="48.5" fill="none" stroke="#fee12c" strokeWidth="2" strokeLinecap="round" pathLength={1} strokeDasharray="1" strokeDashoffset={1} />
-      </svg>
     </div>
   );
 }
@@ -281,7 +300,6 @@ function Hero() {
           <PartnerBadge className="h-11 w-auto" />
         </div>
       </div>
-      <HoldCursor />
     </section>
   );
 }
@@ -375,7 +393,7 @@ function Principles() {
               <span className="jet text-[10px] text-white/40">{it.tag}</span>
             </div>
             {i === 0 && (
-              <div className="jet space-y-2 px-4 pt-5 text-[12px] leading-relaxed">
+              <div className="code-mono space-y-2 px-4 pt-5 text-[12px] leading-relaxed">
                 {CODE_LINES.map((line, k) => (
                   <div key={k} className="flex items-center gap-3">
                     <span className="w-4 text-right text-white/20">{k + 1}</span>
@@ -1084,6 +1102,7 @@ export default function BeeHome() {
   const swarmVis = useRef({ o: 1 });
   const applyVisibility = () => {
     const target = hiders.current.size ? 0 : 1;
+    document.documentElement.toggleAttribute("data-swarm-hidden", !target); // the press-and-hold cursor follows this
     gsap.to(swarmVis.current, { o: target, duration: 0.7, ease: "power2.out", overwrite: true, onUpdate: () => swarm.current?.setOpacity(swarmVis.current.o) });
   };
   const hider = (key: string) => (o: number) => {
@@ -1258,6 +1277,7 @@ export default function BeeHome() {
       <div className="hud-grid pointer-events-none fixed inset-0 z-0 opacity-[0.07]" />
       <Hud />
       <Header />
+      <Cursor />
       <main className="relative z-10">
         <Hero />
         <Mission />
